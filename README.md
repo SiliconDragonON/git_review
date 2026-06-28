@@ -1151,19 +1151,19 @@ PR 页面会自动：
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Merge pull request                                       │
+│ Merge pull request                                      │
 │                                                         │
-│  ○ Create a merge commit                               │
-│    └── 所有分支 commit 原样保留，产生一个 merge commit    │
-│        适合：需要保留完整开发历史的项目                    │
+│  ○ Create a merge commit                                │
+│    └── 所有分支 commit 原样保留，产生一个 merge commit      │
+│        适合：需要保留完整开发历史的项目                      │
 │                                                         │
-│  ● Squash and merge               ← GitHub 默认推荐     │
-│    └── 所有分支 commit 压缩成 1 个，历史整洁              │
-│        适合：小功能、修 bug，多数团队的选择                │
+│  ● Squash and merge               ← GitHub 默认推荐      │
+│    └── 所有分支 commit 压缩成 1 个，历史整洁                │
+│        适合：小功能、修 bug，多数团队的选择                  │
 │                                                         │
-│  ○ Rebase and merge                                    │
-│    └── 分支 commit 逐个 rebase 到 main 顶端              │
-│        适合：追求完全线性历史的项目                       │
+│  ○ Rebase and merge                                     │
+│    └── 分支 commit 逐个 rebase 到 main 顶端               │
+│        适合：追求完全线性历史的项目                          │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
