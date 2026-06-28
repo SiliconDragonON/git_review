@@ -83,15 +83,14 @@ Git 不以文件名或差异来存储数据，而是对所有内容计算 SHA-1 
 ### 3. 三种状态和三个区域
 
 ```
-工作目录          暂存区            本地仓库
-(Working         (Staging          (Local
-Directory)       Area)             Repository)
-    │               │                  │
-    │   git add     │   git commit     │
-    │ ───────────→  │ ───────────────→ │
-    │               │                  │
-    │   git checkout / git restore     │
-    │ ←────────────────────────────────│
+工作目录                暂存区                  本地仓库
+(Working Directory)    (Staging Area)          (Local Repository)
+       │                    │                       │
+       │     git add        │      git commit       │
+       │ ────────────────→  │ ────────────────────→ │
+       │                    │                       │
+       │          git checkout / git restore        │
+       │ ←───────────────────────────────────────── │
 ```
 
 | 区域 | 说明 |
@@ -193,10 +192,10 @@ Linus 在创建设计时设定了几个核心目标：
 
 ```
 packfile 内部结构：
-┌────────────────────────────┐
-│ blob A (10MB) — 作为基准    │  ← 完整存储，必须保留
-│ blob B (1KB)  — 对 A 的 delta │  ← 只存差异
-└────────────────────────────┘
+┌────────────────────────────────────┐
+│ blob A (10MB)  — 作为基准          │  ← 完整存储，必须保留
+│ blob B (1KB)   — 对 A 的 delta    │  ← 只存差异
+└────────────────────────────────────┘
 ```
 
 **但 delta 压缩只节省 blob B 的空间**——blob A（10MB）仍然完整保留在 packfile 中，因为它是基准。
@@ -213,13 +212,13 @@ commit C2 ──→ tree ──→ blob B (1KB)    ← 当前版本
 只要 C1 还存在，blob A 就**必须存在**。因此：
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                                                         │
-│   仓库总大小 = 当前快照 + 整个历史链上的所有旧快照        │
-│                                                         │
-│   文件变小了，仓库不会变小——旧的 10MB 永存于历史中！      │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                                                           │
+│   仓库总大小 = 当前快照 + 整个历史链上的所有旧快照           │
+│                                                           │
+│   文件变小了，仓库不会变小 —— 旧的 10MB 永存于历史中！       │
+│                                                           │
+└───────────────────────────────────────────────────────────┘
 ```
 
 ### 4. 不同场景下的仓库大小
@@ -290,8 +289,8 @@ du -sh .git
 
 很多人把 Git 和 GitHub 混为一谈，但它们是完全不同的东西：
 
-| | **Git** | **GitHub** |
-|---|---|---|
+| 对比维度 | **Git** | **GitHub** |
+|----------|--------|--------|
 | **本质** | 分布式版本控制**工具** | 基于 Git 的代码托管**平台**（Web 服务） |
 | **创建者** | Linus Torvalds | Tom Preston-Werner、Chris Wanstrath、PJ Hyett |
 | **创建时间** | 2005 年 | 2008 年 |
@@ -386,14 +385,13 @@ git push -u origin main
 #### 推送后发生了什么
 
 ```
-本地仓库                              GitHub 远程仓库
-┌───────────────┐                   ┌──────────────────┐
-│ commit C1     │ ─── git push ──→  │ commit C1        │
-│ commit C2     │                   │ commit C2        │
-│ commit C3     │                   │ commit C3        │
-│ refs/heads/   │                   │ refs/heads/main  │
-│   main → C3   │                   │   → C3           │
-└───────────────┘                   └──────────────────┘
+本地仓库                                        GitHub 远程仓库
+┌─────────────────────┐                    ┌──────────────────────┐
+│ commit C1           │                    │ commit C1            │
+│ commit C2           │  ── git push ──→   │ commit C2            │
+│ commit C3           │                    │ commit C3            │
+│ refs/heads/main →C3 │                    │ refs/heads/main →C3  │
+└─────────────────────┘                    └──────────────────────┘
 
 推送之后，GitHub 上就有了你本地的全部 commit 历史、分支和标签。
 ```
@@ -559,8 +557,8 @@ git remote -v               # 可以看到 origin 已配置
 
 ### 6. SSH 与 HTTPS 两种方式的对比
 
-| | **SSH** | **HTTPS** |
-|---|---|---|
+| 对比维度 | **SSH** | **HTTPS** |
+|----------|---------|-----------|
 | **地址格式** | `git@github.com:user/repo.git` | `https://github.com/user/repo.git` |
 | **认证方式** | SSH 密钥对（公钥上传到 GitHub） | Personal Access Token（代替密码） |
 | **配置复杂度** | 稍高（需生成密钥） | 简单（输入 token 即可） |
@@ -584,3 +582,850 @@ git remote -v               # 可以看到 origin 已配置
 | **Git vs GitHub** | Git 是版本控制工具（本地），GitHub 是代码托管平台（云端服务） |
 | **本地推送到远程** | `git remote add origin <url>` → `git push -u origin main` |
 | **配置层级** | System（系统级）> Global（全局级）> Local（仓库级） |
+
+---
+
+## 八、git config --list 输出详解
+
+`git config --list` 会列出当前生效的**全部配置项**，按层级优先级合并显示。下面逐条说明常见的配置项及其含义。
+
+### 1. 查看配置的分层命令
+
+```bash
+git config --list              # 列出所有生效的配置（三层合并）
+git config --system --list     # 仅 System 级
+git config --global --list     # 仅 Global 级
+git config --local --list      # 仅 Local 级（当前仓库）
+git config --list --show-origin  # 显示每条配置的来源文件路径
+```
+
+### 2. 典型输出及逐条解释
+
+以下是一个 Windows 环境下的典型输出（已脱敏处理），按来源层级分析：
+
+#### System（系统级）—— Git 安装时自动生成
+
+| 配置项 | 典型值 | 含义 |
+|--------|--------|------|
+| `diff.astextplain.textconv` | `astextplain` | 将 `.doc`、`.pdf` 等二进制文件转为纯文本再做 diff |
+| `filter.lfs.clean` | `git-lfs clean -- %f` | **Git LFS**：提交时将大文件替换为指针 |
+| `filter.lfs.smudge` | `git-lfs smudge -- %f` | **Git LFS**：检出时将指针还原为大文件 |
+| `filter.lfs.process` | `git-lfs filter-process` | **Git LFS**：长驻进程模式，比 clean/smudge 更快 |
+| `filter.lfs.required` | `true` | 强制启用 LFS 过滤器 |
+| `http.sslbackend` | `schannel` | 使用 **Windows 原生 Schannel** 做 SSL/TLS 加密（而非 OpenSSL） |
+| `core.autocrlf` | `true` | ⭐ 提交时 `CRLF→LF`，检出时 `LF→CRLF`，解决 Windows 换行符问题 |
+| `core.fscache` | `true` | 启用文件系统缓存，加速 Windows 上 `git status` 等操作 |
+| `core.symlinks` | `false` | 禁用符号链接（Windows 默认不支持） |
+| `pull.rebase` | `false` | `git pull` 时使用 merge 策略而非 rebase |
+| `credential.helper` | `manager` | 使用 **Windows 凭据管理器** 存储远程仓库密码/Token |
+| `credential.https://dev.azure.com.usehttppath` | `true` | Azure DevOps 凭据匹配使用完整路径 |
+| `init.defaultbranch` | `master` 或 `main` | 新仓库的默认分支名称 |
+
+#### Global（全局级）—— 用户级配置
+
+| 配置项 | 典型值 | 含义 |
+|--------|--------|------|
+| `user.name` | `Your Name` | ⭐ commit 作者名（全局默认，所有仓库共用） |
+| `user.email` | `your@email.com` | ⭐ commit 作者邮箱（关联 GitHub 账户） |
+| `safe.directory` | `/path/to/repo` | 信任该目录，避免属主不匹配时触发安全警告 |
+
+#### Local（仓库级）—— 当前仓库专属
+
+| 配置项 | 典型值 | 含义 |
+|--------|--------|------|
+| `core.repositoryformatversion` | `0` | 仓库格式版本，`0` 为标准格式 |
+| `core.filemode` | `false`（Windows）/ `true`（Unix） | 是否追踪文件的可执行权限位 |
+| `core.bare` | `false` | 是否为裸仓库（bare repo），`false` 表示有工作目录 |
+| `core.logallrefupdates` | `true` | 记录所有分支引用变更日志（`git reflog` 的数据来源） |
+| `core.symlinks` | `false` | 是否支持符号链接 |
+| `core.ignorecase` | `true`（Windows/macOS）/ `false`（Linux） | 文件名大小写是否敏感 |
+| `user.name` | `repo-specific-name` | 可选：覆盖全局用户名，仅当前仓库生效 |
+| `user.email` | `repo-specific@email.com` | 可选：覆盖全局邮箱，仅当前仓库生效 |
+| `remote.origin.url` | `git@github.com:user/repo.git` | 远程仓库地址 |
+| `branch.main.remote` | `origin` | 本地 `main` 分支对应的远程仓库名 |
+| `branch.main.merge` | `refs/heads/main` | 本地 `main` 分支追踪的远程分支 |
+
+### 3. 配置层级优先级
+
+```
+查询 key 时的查找顺序（高 → 低）：
+
+  ★ Local   (.git/config)
+     ↑ 覆盖
+  ★ Global  (~/.gitconfig 或 ~/.config/git/config)
+     ↑ 覆盖
+  ★ System  (/etc/gitconfig 或 C:\Program Files\Git\etc\gitconfig)
+```
+
+### 4. 身份覆盖机制（重要）
+
+一个常见场景：全局使用个人身份，特定仓库使用公司身份。
+
+```bash
+# 全局：个人身份
+git config --global user.name "Personal Name"
+git config --global user.email "personal@gmail.com"
+
+# 某仓库内：覆盖为公司身份
+git config user.name "Work Name"
+git config user.email "work@company.com"
+```
+
+此时该仓库中所有 commit 的署名都是 **Work Name <work@company.com>**，其他仓库不受影响。验证当前仓库实际生效的身份：
+
+```bash
+git config user.name      # 显示当前仓库实际使用的用户名
+git config user.email     # 显示当前仓库实际使用的邮箱
+```
+
+### 5. Windows 环境特有配置
+
+这些配置项仅在 Git for Windows 中出现，Linux/macOS 上看不到：
+
+| 配置项 | 作用 |
+|--------|------|
+| `core.autocrlf=true` | 自动转换换行符，防止 Windows CRLF 与 Unix LF 互相污染 |
+| `core.fscache=true` | Windows 文件系统缓存加速 |
+| `core.symlinks=false` | 贴合 Windows 无原生符号链接的限制 |
+| `core.ignorecase=true` | 贴合 Windows/macOS 大小写不敏感的文件系统 |
+| `http.sslbackend=schannel` | 使用 Windows 原生证书存储做 HTTPS 验证 |
+| `credential.helper=manager` | 使用 Windows 凭据管理器（凭据不会以明文存储） |
+
+### 6. `.git/config` 文件示例
+
+`git config --local --list` 的输出本质上就是当前仓库的 `.git/config` 文件内容：
+
+```ini
+[core]
+    repositoryformatversion = 0
+    filemode = false
+    bare = false
+    logallrefupdates = true
+    symlinks = false
+    ignorecase = true
+
+[user]
+    name = repo-specific-name
+    email = repo-specific@email.com
+```
+
+该文件在 `git init` 时自动生成，`[user]` 段则通过 `git config user.name` / `git config user.email` 手动设置。
+
+---
+
+## 九、配置 SSH 密钥实现免密推送到 GitHub
+
+使用 SSH 密钥认证后，`git push` 不再需要每次输入用户名和密码，安全性也更高。
+
+### 1. 完整的配置步骤
+
+#### 第一步：生成 SSH 密钥对
+
+```bash
+# 使用 Ed25519 算法（推荐，更安全更快）
+ssh-keygen -t ed25519 -C "your_email@example.com"
+
+# 如果你的系统不支持 Ed25519（较老版本），用 RSA 替代：
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+```
+
+执行后会看到三个提示：
+
+```
+Enter file in which to save the key (/home/you/.ssh/id_ed25519):
+# ↑ 直接回车，使用默认路径
+
+Enter passphrase:
+# ↑ 输入密码短语（可以为空直接回车，但建议设置）
+# 设置后可获得额外安全性：私钥被盗也无法直接使用
+
+Enter same passphrase again:
+# ↑ 重复输入
+```
+
+生成的文件：
+
+```
+~/.ssh/
+├── id_ed25519        # 私钥（绝不可公开！）
+└── id_ed25519.pub    # 公钥（可以安全地给任何人/服务）
+```
+
+#### 第二步：启动 ssh-agent 并添加私钥
+
+```bash
+# 启动 ssh-agent（后台进程，帮你管理私钥的解锁状态）
+eval "$(ssh-agent -s)"
+
+# 将私钥添加到 ssh-agent（如果设置了 passphrase，这里需要输入一次）
+ssh-add ~/.ssh/id_ed25519
+```
+
+#### 第三步：将公钥添加到 GitHub
+
+```bash
+# 复制公钥内容
+cat ~/.ssh/id_ed25519.pub
+```
+
+然后在 GitHub 网页上操作：
+
+1. 打开 [github.com](https://github.com) → 右上角头像 → **Settings**
+2. 左侧菜单 → **SSH and GPG keys**
+3. 点击绿色按钮 **New SSH key**
+4. **Title**：填一个辨识度高的名称（如 "My Windows PC"）
+5. **Key type**：选择 `Authentication Key`
+6. **Key**：粘贴刚才复制的公钥内容（以 `ssh-ed25519` 开头，邮箱结尾的一长串）
+7. 点击 **Add SSH key**
+
+#### 第四步：测试连接
+
+```bash
+ssh -T git@github.com
+```
+
+成功显示：
+
+```
+Hi <你的GitHub用户名>! You've authenticated, but GitHub does not provide shell access.
+```
+
+> ⚠️ 第一次连接会弹出主机验证提示：
+> ```
+> The authenticity of host 'github.com (20.205.243.166)' can't be established.
+> ED25519 key fingerprint is SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU.
+> Are you sure you want to continue connecting (yes/no)?
+> ```
+> 输入 `yes` 回车即可。
+
+#### 第五步：将本地仓库远程地址改为 SSH 格式
+
+```bash
+# 查看当前远程地址
+git remote -v
+
+# 如果是 HTTPS 格式，改为 SSH 格式
+git remote set-url origin git@github.com:你的用户名/你的仓库名.git
+
+# 验证
+git remote -v
+# origin  git@github.com:你的用户名/你的仓库名.git (fetch)
+# origin  git@github.com:你的用户名/你的仓库名.git (push)
+```
+
+#### 第六步：测试推送
+
+```bash
+git add .
+git commit -m "test ssh push"
+git push
+# 不再提示输入用户名和密码，推送直接完成 ✅
+```
+
+### 2. 工作原理
+
+```
+┌──────────────────────┐                      ┌──────────────────────┐
+│      你的电脑         │   ① ssh-keygen        │       GitHub          │
+│                      │ ───────────────────→ │                      │
+│  私钥（本地保存）     │    生成公钥 + 私钥     │  收到公钥             │
+│  绝不外传             │                      │  关联到你的账户        │
+│                      │   ② 通过网页上传公钥   │                      │
+│                      │ ───────────────────→ │                      │
+└──────────┬───────────┘                      └──────────┬───────────┘
+           │                                             │
+           │  ③ git push 时，本地用私钥签名                │
+           │ ────────────────────────────────────────────→ │
+           │                                             │
+           │  ④ GitHub 用公钥验证签名，通过后接受推送       │
+           │ ←──────────────────────────────────────────── │
+           │                                             │
+           │  全程无需密码，公私密钥对完成身份验证 ✅          │
+```
+
+**核心原理**：公钥加密、私钥解密。GitHub 用你上传的公钥加密一段随机消息发给你的电脑，你的电脑只有用配对的那个私钥才能解密并正确回应，从而证明"我就是私钥持有者"。整个过程私钥从不离开你的电脑。
+
+### 3. 常见问题
+
+| 问题 | 解决方法 |
+|------|----------|
+| 每次开机都要重新 `ssh-add`？ | Windows 可以将 `ssh-add ~/.ssh/id_ed25519` 加入 `~/.bashrc` 或 `~/.profile`；macOS 用 `ssh-add --apple-use-keychain ~/.ssh/id_ed25519` |
+| 多台电脑怎么办？ | **每台电脑生成各自的密钥对**，分别添加到 GitHub。不要在电脑间复制私钥 |
+| 私钥泄漏了怎么办？ | 立即在 GitHub → Settings → SSH keys 中删除对应公钥，本地重新生成 |
+| 仍然 `Permission denied`？ | 用 `ssh -Tv git@github.com` 查看详细调试输出，常见原因：公钥未正确粘贴、使用了错误的 GitHub 用户名 |
+| 公司/个人两套身份？ | 可以用 `~/.ssh/config` 配置 Host 别名，不同的 Host 用不同的密钥 |
+
+### 4. HTTPS Token 方式（备选方案）
+
+如果不想用 SSH，也可以用 HTTPS + Personal Access Token：
+
+```bash
+# 1. GitHub → Settings → Developer settings → Personal access tokens → Generate new token
+# 2. 勾选 repo 权限，生成 token
+# 3. 使用 token 作为密码
+git remote set-url origin https://github.com/你的用户名/你的仓库名.git
+git push
+# Username: 你的用户名
+# Password: 粘贴 token（不是 GitHub 登录密码！）
+```
+
+但 SSH 密钥方式依然是**更推荐**的做法：配置一次，永久免密，且更安全。
+
+---
+
+## 十、大型多人协作项目管理
+
+### 1. 三大核心原则
+
+```
+                稳定性
+                  ▲
+                /  \
+               /    \
+              /      \
+             /  项目  \
+            /   管理   \
+           /            \
+          /              \
+         ─────────────────
+        可追溯性          可并行性
+```
+
+| 原则 | 含义 | 对应机制 |
+|------|------|----------|
+| **稳定性** | 主分支始终处于可发布状态，任何时候 `git clone` 下来都能跑 | 分支保护规则、CI 门禁 |
+| **可追溯性** | 每一行代码都能追溯到"谁、什么时候、为什么"修改的 | commit 规范、Pull Request、Issue 关联 |
+| **可并行性** | 多人同时开发不同功能互不阻塞 | 合理的分支策略、频繁合并 |
+
+---
+
+### 2. Git 分支策略（Branching Model）
+
+#### 2.1 Git Flow（最经典，适合有固定发布周期的项目）
+
+```
+master (main)  ●────────── ●────────────────────── ●──────── ●─   ← 每个 tag 对应一个发布版本
+                │            │                        │
+hotfix/        │            │           ●────────────┘           ← 线上紧急修复
+                │            │
+release/       │       ●────┴────●                              ← 发布前的测试冻结期
+                │      /         /
+develop       ●─┴──●───●────●───●──●────●──                     ← 日常开发主线
+               │   /    /    /
+feature/      ●──●     ●──●                                     ← 每个新功能一个分支
+```
+
+| 分支类型 | 用途 | 从哪分出 | 合并到哪 |
+|----------|------|----------|----------|
+| `main` / `master` | 生产环境代码，每个 commit 都应该可发布 | — | — |
+| `develop` | 开发主线，集成所有功能 | `main` | `main`（通过 release） |
+| `feature/*` | 单个新功能开发 | `develop` | `develop` |
+| `release/*` | 发布准备（修 bug、改版本号） | `develop` | `main` + `develop` |
+| `hotfix/*` | 线上紧急修复 | `main` | `main` + `develop` |
+
+#### 2.2 GitHub Flow（更简单，适合持续部署）
+
+```
+main  ●────────●────────●────────●──→  始终可部署
+      │        │        │
+      │   ●────┘        │              ← feature A 通过 PR 合并
+      │        │   ●────┘              ← feature B 通过 PR 合并
+      │
+      ●──●──●                           ← feature C 在分支上开发，PR 审查后合并
+```
+
+核心规则只有一条：**`main` 分支永远可部署**。所有新功能通过分支 + Pull Request 完成。
+
+#### 2.3 Trunk-Based Development（适合大厂、高频发布）
+
+```
+main  ●─●─●─●─●─●─●─●─●─●─→  每天多次提交到主干
+      │   │   │
+      ●   ●   ●                  ← 极短生命周期的功能分支（< 1 天）
+```
+
+分支存活不超过 1 天，通过 Feature Flag 控制未完成功能的可见性。Google、Facebook 等大厂广泛使用。
+
+#### 2.4 三种策略对比
+
+| 对比维度 | Git Flow | GitHub Flow | Trunk-Based |
+|----------|----------|-------------|-------------|
+| **复杂度** | 高 | 低 | 极低 |
+| **分支种类** | 5 种 | 2 种（main + feature） | 1 种（main） |
+| **发布频率** | 数周一次 | 按需（可能一天多次） | 一天数十次 |
+| **适合团队** | 有固定发布周期的传统软件 | SaaS / Web 应用 | 大型互联网公司 |
+| **CI/CD 要求** | 低 | 中 | 极高 |
+
+---
+
+### 3. Pull Request（PR）工作流详解
+
+PR 是 GitHub 对 Git 最重要的贡献，也是多人协作的核心载体。它本质上是一个**被美化的合并请求**——在真正合并代码之前，提供一个讨论、审查、自动化检查的平台。
+
+#### 3.1 PR 的本质
+
+一个 PR 包含三样东西：
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Pull Request                         │
+│                                                         │
+│  ① 代码差异（Diff）                                      │
+│     └── 从 feature 分支相对于 main 分支的所有改动         │
+│                                                         │
+│  ② 对话记录（Conversation）                              │
+│     └── 审查评论、修改讨论、决策记录，不可变的历史档案      │
+│                                                         │
+│  ③ 自动化检查结果（Status Checks）                       │
+│     └── CI 测试、Lint、构建、安全扫描 是否通过            │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### 3.2 PR 生命周期
+
+```
+ 阶段 1: 创建          阶段 2: 审查            阶段 3: 合并           阶段 4: 清理
+┌────────────┐      ┌────────────┐         ┌────────────┐        ┌────────────┐
+│            │      │            │         │            │        │            │
+│  推送分支   │ ───→ │  CI 检查   │ ───→    │  代码审查   │ ───→   │  合并到     │ ───→ │  删除分支   │
+│  创建 PR   │      │  自动运行  │         │  人工审查   │        │  main      │      │            │
+│            │      │            │         │            │        │            │      │            │
+└────────────┘      └────────────┘         └────────────┘        └────────────┘      └────────────┘
+                           │                      │
+                    失败 ↓ │              修改要求 ↓
+                    ┌────────────┐        ┌────────────┐
+                    │  修复代码   │        │  修改代码   │
+                    │  重新推送   │        │  回复评论   │
+                    └────────────┘        └────────────┘
+                           │                      │
+                           └──────────┬───────────┘
+                                      │
+                                      ↓
+                         回到阶段 2（循环直到 CI 通过 + 审查批准）
+```
+
+#### 3.3 PR 的完整操作流程
+
+##### 创建 PR 之前
+
+```bash
+# 1. 确保本地 main 是最新的
+git checkout main
+git pull origin main
+
+# 2. 从 main 创建功能分支（命名要有意义）
+git checkout -b feature/user-avatar-upload
+#   命名规范：<type>/<description>
+#   例子：feature/login-oauth, fix/payment-timeout, refactor/db-pool
+
+# 3. 开发，小步提交
+git add src/upload.js
+git commit -m "feat(upload): add multipart file upload handler"
+
+git add src/upload.test.js
+git commit -m "test(upload): add unit tests for file size validation"
+
+git add src/frontend/avatar.jsx
+git commit -m "feat(avatar): add avatar preview component"
+
+# 4. 推送分支到 GitHub
+git push origin feature/user-avatar-upload
+```
+
+##### 在 GitHub 上创建 PR
+
+```
+方式 A：git push 后在终端输出的链接直接打开
+  remote: Create a pull request for 'feature/user-avatar-upload' on GitHub by visiting:
+  remote: https://github.com/user/repo/pull/new/feature/user-avatar-upload
+
+方式 B：在 GitHub 仓库页面上手动操作
+  1. 打开仓库页面，点击 "Pull requests" 标签
+  2. 点击绿色按钮 "New pull request"
+  3. base 选择 main ← compare 选择 feature/user-avatar-upload
+  4. 点击 "Create pull request"
+
+填写 PR 描述：
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ Title: feat(avatar): add user avatar upload                  │
+│                                                              │
+│ Description:                                                 │
+│   ## What                                                    │
+│   - 添加用户头像上传功能                                       │
+│   - 支持 JPG/PNG/GIF 格式                                    │
+│   - 最大 2MB                                                 │
+│                                                              │
+│   ## Screenshots                                             │
+│   (拖入截图)                                                  │
+│                                                              │
+│   ## Related Issue                                           │
+│   Closes #42                                                 │
+│                                                              │
+│   ## Testing                                                 │
+│   - [ ] 单元测试通过                                          │
+│   - [ ] 手动测试过大文件被拒绝                                 │
+│                                                              │
+└───────────────────────────────────────────────────────────────┘
+```
+
+##### Draft PR（草稿 PR）
+
+如果功能还没做完，但想让同事了解进度，可以创建 Draft PR：
+
+```
+在创建 PR 时，点击 "Create pull request" 旁边的下拉箭头
+→ 选择 "Create draft pull request"
+
+Draft PR 的特点：
+  ✅ 可以看到代码差异和对话
+  ✅ 可以触发 CI 运行
+  ❌ 不能合并（Merge 按钮灰色不可点击）
+  ❌ CODEOWNERS 不会自动请求审查
+
+当功能完成时，点击 "Ready for review" 转为正式 PR
+```
+
+##### 代码审查过程
+
+审查者看到的页面：
+
+```
+┌── Files changed (3) ──────────────────────────────────────────┐
+│                                                               │
+│  src/upload.js                                     +45 -2     │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ 124  function validateFile(file) {                     │  │
+│  │ 125    if (file.size > MAX_SIZE) {                     │  │
+│  │ +      throw new FileTooLargeError(file.size);         │  │
+│  │ +    }                                                 │  │
+│  │ 126    return true;                                    │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│                                                               │
+│  审查者点击 "+" 号添加行级评论：                                 │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ 💬 Should we also check file.type here?                 │  │
+│  │    Consider validating against an allowlist of          │  │
+│  │    MIME types to prevent malicious uploads.             │  │
+│  │                                                        │  │
+│  │ [Add single comment]    [Start a review]                │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│                                                               │
+│  src/upload.test.js                                +32 -0     │
+│  src/frontend/avatar.jsx                           +18 -5     │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+审查评论分为三种类型：
+
+| 类型 | 含义 | 何时用 |
+|------|------|--------|
+| **Comment** | 普通评论，不阻断合并 | 提问、建议、讨论 |
+| **Approve** | 批准，允许合并 | 代码没问题 |
+| **Request changes** | 要求修改，**阻断合并** | 有 bug、安全问题、不符合规范 |
+
+##### 响应审查意见
+
+```bash
+# 1. 根据审查意见修改代码
+git checkout feature/user-avatar-upload
+# 修改文件...
+git add src/upload.js
+git commit -m "fix(upload): add MIME type validation per PR review"
+
+# 2. 推送修改（PR 会自动更新）
+git push origin feature/user-avatar-upload
+```
+
+PR 页面会自动：
+- 显示新的 commit
+- 标记之前的审查为 "stale"（过时），通知审查者重新审
+- 重新触发 CI
+
+##### 合并 PR
+
+审查通过 + CI 全绿后，有三种合并方式：
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Merge pull request                                       │
+│                                                         │
+│  ○ Create a merge commit                               │
+│    └── 所有分支 commit 原样保留，产生一个 merge commit    │
+│        适合：需要保留完整开发历史的项目                    │
+│                                                         │
+│  ● Squash and merge               ← GitHub 默认推荐     │
+│    └── 所有分支 commit 压缩成 1 个，历史整洁              │
+│        适合：小功能、修 bug，多数团队的选择                │
+│                                                         │
+│  ○ Rebase and merge                                    │
+│    └── 分支 commit 逐个 rebase 到 main 顶端              │
+│        适合：追求完全线性历史的项目                       │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+三种方式的可视化对比：
+
+```
+Merge Commit:            Squash & Merge:          Rebase & Merge:
+  *  merge commit          *  feat: login           *  feat: login
+  |\                       |                        |
+  | * feat commit 3        *  feat: payment         *  feat: payment
+  | * feat commit 2        |                        |
+  | * feat commit 1        *  fix: typo             *  fix: typo
+  |/                       |                        |
+  *  previous commit        *  previous commit        *  previous commit
+
+  保留开发过程             干净，但丢失细节           完全线性，提交被重写
+```
+
+#### 3.4 PR 的最佳实践
+
+**对于 PR 创建者：**
+
+| 实践 | 说明 |
+|------|------|
+| **PR 越小越好** | 理想情况 < 400 行改动。大 PR 拆分提交，审查者更愿意认真看 |
+| **一个 PR 只做一件事** | 不要在一个 PR 中既重构又加新功能又修 bug |
+| **写好 PR 描述** | 说清楚做了什么、为什么这样做、如何测试 |
+| **关联 Issue** | 描述中写 `Closes #123`，合并后自动关闭对应 Issue |
+| **先自查再请求审查** | 自己先在 Files changed 中看一遍 diff，发现明显问题先改 |
+| **@mention 合适的审查者** | 不要无差别 @所有人，找最了解这块代码的人 |
+
+**对于审查者：**
+
+| 实践 | 说明 |
+|------|------|
+| **24 小时内响应** | 不一定要审完，但至少说"我明天看"，不要让人等待 |
+| **区分必须改和建议改** | 用 "nit:"（nitpick）标记非必须的建议，用 "must:" 标记必须修改的 |
+| **说为什么，而不只是什么** | "这里应该用 const" → "这里用 const 能防止意外的重新赋值，提高可读性" |
+| **关注逻辑而非风格** | 格式问题交给 Linter，审查者关注架构、安全、错误处理 |
+| **审查是对事不对人** | 用中性语言，如"这个查询可能导致 N+1 问题"而不是"你写的查询太差了" |
+
+#### 3.5 PR 中的常见操作
+
+```bash
+# 场景 1：PR 提交后，main 又有新 commit，需要更新你的 PR 分支
+git checkout main
+git pull origin main
+git checkout feature/user-avatar-upload
+git merge main                    # merge 方式：产生一个 merge commit
+# 或
+git rebase main                   # rebase 方式：提交历史更整洁（需要 force push）
+git push --force-with-lease origin feature/user-avatar-upload
+
+# 场景 2：审查者要求修改，你不想要太多"fix review"的 commit
+# 在本地用 amend 修改上一个 commit，而不是新建一个
+git add src/fixed-file.js
+git commit --amend --no-edit      # 不改变 commit message，只是追加改动
+git push --force-with-lease origin feature/user-avatar-upload
+
+# 场景 3：你的分支包含多个杂乱的小 commit，想整理干净
+git rebase -i main                # 交互式 rebase
+# 在弹出的编辑器中，将后面的 commit 标记为 squash/fixup
+# 让它们合并到第一个 commit 中，形成一个干净的 PR
+git push --force-with-lease origin feature/user-avatar-upload
+```
+
+#### 3.6 PR 描述模板示例
+
+在项目根目录创建 `.github/pull_request_template.md`：
+
+```markdown
+## 📝 描述
+
+请简要描述这个 PR 做了什么。
+
+## 🔗 关联 Issue
+
+Closes #
+
+## 📸 截图
+
+（如果有 UI 变更，请附上截图）
+
+## ✅ 自查清单
+
+- [ ] 代码通过本地测试
+- [ ] 添加了必要的单元测试
+- [ ] 更新了相关文档
+- [ ] 没有引入新的 Lint 警告
+
+## 🧪 如何测试
+
+1. 切换到该分支
+2. 运行 `npm test`
+3. 检查 `xxx` 功能是否正常
+```
+
+---
+
+### 4. Commit 规范
+
+好的 commit 信息是可追溯性的基础。推荐 **Conventional Commits** 规范：
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+| type | 含义 | 示例 |
+|------|------|------|
+| `feat` | 新功能 | `feat(auth): add login with Google OAuth` |
+| `fix` | 修复 bug | `fix(api): handle null response from payment gateway` |
+| `refactor` | 重构（不改变功能） | `refactor(db): extract connection pool to shared module` |
+| `docs` | 文档 | `docs(readme): add deployment instructions` |
+| `test` | 测试 | `test(login): add unit tests for password validation` |
+| `chore` | 杂务（依赖更新等） | `chore(deps): bump express to 4.18.0` |
+
+#### commit 粒度原则
+
+```
+好的 commit：                         不好的 commit：
+一个 commit = 一个逻辑变更             一个 commit = 一天的工作
+                                      ("WIP"、"fix stuff"、"update")
+
+git log 读起来像一本书的目录            git log 读起来像一团乱麻
+```
+
+---
+
+### 5. 分支保护规则（Branch Protection Rules）
+
+对 `main` 分支应该设置（GitHub Settings → Branches → Add rule）：
+
+```
+main 分支保护规则：
+
+✅ Require a pull request before merging
+   └── ✅ Require approvals (至少 1 人批准)
+   └── ✅ Dismiss stale approvals when new commits are pushed
+       （有人 push 新 commit 后，之前的批准作废，必须重新审查）
+
+✅ Require status checks to pass before merging
+   └── ✅ CI tests
+   └── ✅ Lint check
+   └── ✅ Build check
+
+✅ Require conversation resolution before merging
+   （所有审查评论必须解决才能合并）
+
+✅ Require branches to be up to date before merging
+   （合并前必须先与最新的 main 同步，避免合并后 main 出现意外问题）
+
+❌ Do not allow bypassing the above settings
+   （即使是管理员也不能跳过这些规则）
+```
+
+---
+
+### 6. 合并冲突的预防与解决
+
+#### 预防冲突
+
+```bash
+# 好习惯：每天从 main 拉取最新代码
+git checkout main
+git pull origin main
+git checkout feature/my-branch
+git merge main          # 频繁小合并，冲突少且容易解决
+```
+
+#### 解决冲突
+
+```bash
+# 当 git merge 提示冲突时：
+# Auto-merging src/file.js
+# CONFLICT (content): Merge conflict in src/file.js
+
+# 1. 查看冲突文件
+git status                # 查看哪些文件有冲突
+
+# 2. 打开冲突文件，内容类似：
+# <<<<<<< HEAD
+# const port = 3000;
+# =======
+# const port = process.env.PORT || 3000;
+# >>>>>>> feature/add-env-config
+
+# 3. 手动编辑，选择保留的内容（删除标记线），改为：
+# const port = process.env.PORT || 3000;
+
+# 4. 标记为已解决
+git add src/file.js
+
+# 5. 完成合并
+git commit               # Git 会自动生成合并 commit message
+```
+
+---
+
+### 7. 实际团队运作的一天
+
+```
+早上 9:00
+  git checkout main
+  git pull
+  git checkout -b feature/user-avatar
+
+上午 11:30
+  git add .
+  git commit -m "feat(avatar): add upload endpoint"
+  git push origin feature/user-avatar
+  # 创建 Draft PR（让同事知道你在做什么，但不能合并）
+
+下午 3:00
+  git add .
+  git commit -m "feat(avatar): add frontend preview component"
+  git push
+  # Draft PR → Ready for Review
+  # 在 GitHub 上 @同事 请求审查
+
+下午 4:00（同事审完后有修改意见）
+  # 修改代码...
+  git add .
+  git commit -m "fix(avatar): handle file size validation per review"
+  git push
+  # PR 页面自动更新，通知同事重新审查
+
+下午 5:00（审批通过，CI 全绿）
+  # 点击 GitHub 上的 "Squash and merge"
+  # 删除远程分支（GitHub 自动提供按钮）
+  git checkout main
+  git pull
+  git branch -d feature/user-avatar
+```
+
+---
+
+### 8. 核心准则总结
+
+```
+1. main 分支永远可部署
+   └── 任何人不直接 push 到 main，必须通过 PR
+
+2. 一个分支只做一件事
+   └── 功能分支 / 修复分支 / 重构分支严格分离
+
+3. 小步提交，频繁合并
+   └── PR 越小越好审，每次合并越安全
+
+4. Commit 信息是你的"代码日记"
+   └── 6 个月后回来看，也能看懂每个 commit 做了什么
+
+5. 代码审查是知识共享，不是找茬
+   └── 审的是代码质量、安全性、可维护性，不是个人
+
+6. CI 不过就不能合并
+   └── 自动化测试是最后一道防线，人工审查不能替代
+
+7. 团队协作 = 信任 + 流程
+   └── 流程不是束缚，是保护每个人不犯低级错误的安全网
+```
